@@ -16,7 +16,7 @@ FastAPI and MySQL backend with a Bootstrap/Jinja dashboard for small business in
 Use Python 3.14 and the project virtual environment:
 
 ```powershell
-cd D:\Shri\xampp\htdocs\Python\ai-dashboard
+cd \ai-dashboard
 .\venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 ```
