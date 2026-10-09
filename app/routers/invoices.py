@@ -11,7 +11,8 @@ from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.user import User
 from app.schemas.invoice import InvoiceInput, InvoiceResponse
-from app.services.security import get_current_user, require_admin
+from app.services.permissions import require_permission
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/api/invoices", tags=["Invoices"], dependencies=[Depends(get_current_user)])
 CENT = Decimal("0.01")
@@ -31,7 +32,7 @@ def update_workflow_status(invoice: Invoice):
         invoice.status = "overdue"
 
 
-@router.post("", response_model=InvoiceResponse, status_code=201)
+@router.post("", response_model=InvoiceResponse, status_code=201, dependencies=[Depends(require_permission("invoices.create"))])
 def create(data: InvoiceInput, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if data.due_date < data.invoice_date: raise HTTPException(422, "Due date must be on or after invoice date")
     if data.status in ("paid", "overdue"): raise HTTPException(422, "Paid and overdue statuses are managed by the payment and due-date workflow")
@@ -46,7 +47,7 @@ def create(data: InvoiceInput, db: Session = Depends(get_db), user: User = Depen
     db.add(invoice); db.commit(); db.refresh(invoice); return invoice
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_permission("invoices.view"))])
 def listing(search: str | None = None, status: str | None = None, customer_id: int | None = None,
             start_date: date | None = None, end_date: date | None = None,
             sort_by: str = Query("invoice_date", pattern="^(invoice_number|invoice_date|total_amount)$"),
@@ -81,7 +82,7 @@ def listing(search: str | None = None, status: str | None = None, customer_id: i
     return {"items": items, "page": page, "per_page": per_page, "total": total, "pages": (total + per_page - 1) // per_page}
 
 
-@router.get("/{invoice_id}", response_model=InvoiceResponse)
+@router.get("/{invoice_id}", response_model=InvoiceResponse, dependencies=[Depends(require_permission("invoices.view"))])
 def get_one(invoice_id: int, db: Session = Depends(get_db)):
     row = db.query(Invoice).options(joinedload(Invoice.items)).filter_by(id=invoice_id).first()
     if not row: raise HTTPException(404, "Invoice not found")
@@ -90,7 +91,7 @@ def get_one(invoice_id: int, db: Session = Depends(get_db)):
     return row
 
 
-@router.put("/{invoice_id}", response_model=InvoiceResponse)
+@router.put("/{invoice_id}", response_model=InvoiceResponse, dependencies=[Depends(require_permission("invoices.edit"))])
 def update(invoice_id: int, data: InvoiceInput, db: Session = Depends(get_db)):
     row = db.query(Invoice).options(joinedload(Invoice.items)).filter_by(id=invoice_id).first()
     if not row: raise HTTPException(404, "Invoice not found")
@@ -109,7 +110,7 @@ def update(invoice_id: int, data: InvoiceInput, db: Session = Depends(get_db)):
     db.commit(); db.refresh(row); return row
 
 
-@router.delete("/{invoice_id}", status_code=204, dependencies=[Depends(require_admin)])
+@router.delete("/{invoice_id}", status_code=204, dependencies=[Depends(require_permission("invoices.delete"))])
 def delete(invoice_id: int, db: Session = Depends(get_db)):
     row = db.get(Invoice, invoice_id)
     if not row: raise HTTPException(404, "Invoice not found")

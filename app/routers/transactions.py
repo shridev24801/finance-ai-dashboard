@@ -8,19 +8,20 @@ from app.config.database import get_db
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.transaction import TransactionInput, TransactionResponse
-from app.services.security import get_current_user, require_admin
+from app.services.permissions import require_permission
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/api/transactions", tags=["Transactions"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("", response_model=TransactionResponse, status_code=201)
+@router.post("", response_model=TransactionResponse, status_code=201, dependencies=[Depends(require_permission("transactions.create"))])
 def create(data: TransactionInput, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     row = Transaction(**data.model_dump(), created_by=user.id)
     db.add(row); db.commit(); db.refresh(row)
     return row
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_permission("transactions.view"))])
 def listing(search: str | None = None, type: str | None = Query(None, pattern="^(income|expense)$"), category: str | None = None,
             status: str | None = None, start_date: date | None = None, end_date: date | None = None,
             sort_by: str = Query("transaction_date", pattern="^(transaction_date|amount)$"),
@@ -39,14 +40,14 @@ def listing(search: str | None = None, type: str | None = Query(None, pattern="^
     return {"items": items, "page": page, "per_page": per_page, "total": total, "pages": (total + per_page - 1) // per_page}
 
 
-@router.get("/{row_id}", response_model=TransactionResponse)
+@router.get("/{row_id}", response_model=TransactionResponse, dependencies=[Depends(require_permission("transactions.view"))])
 def get_one(row_id: int, db: Session = Depends(get_db)):
     row = db.get(Transaction, row_id)
     if not row: raise HTTPException(404, "Transaction not found")
     return row
 
 
-@router.put("/{row_id}", response_model=TransactionResponse)
+@router.put("/{row_id}", response_model=TransactionResponse, dependencies=[Depends(require_permission("transactions.edit"))])
 def update(row_id: int, data: TransactionInput, db: Session = Depends(get_db)):
     row = db.get(Transaction, row_id)
     if not row: raise HTTPException(404, "Transaction not found")
@@ -54,7 +55,7 @@ def update(row_id: int, data: TransactionInput, db: Session = Depends(get_db)):
     db.commit(); db.refresh(row); return row
 
 
-@router.delete("/{row_id}", status_code=204, dependencies=[Depends(require_admin)])
+@router.delete("/{row_id}", status_code=204, dependencies=[Depends(require_permission("transactions.delete"))])
 def delete(row_id: int, db: Session = Depends(get_db)):
     row = db.get(Transaction, row_id)
     if not row: raise HTTPException(404, "Transaction not found")

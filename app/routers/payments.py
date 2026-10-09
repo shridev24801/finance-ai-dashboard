@@ -10,7 +10,8 @@ from app.models.invoice import Invoice
 from app.models.payment import Payment
 from app.models.user import User
 from app.schemas.invoice import PaymentInput
-from app.services.security import get_current_user, require_admin
+from app.services.permissions import require_permission
+from app.services.security import get_current_user
 
 router = APIRouter(prefix="/api/payments", tags=["Payments"], dependencies=[Depends(get_current_user)])
 
@@ -22,7 +23,7 @@ def reconcile(invoice: Invoice, db: Session):
     elif invoice.status == "paid": invoice.status = "sent"
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[Depends(require_permission("payments.create"))])
 def create(data: PaymentInput, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     invoice = db.query(Invoice).filter_by(id=data.invoice_id).first()
     if not invoice: raise HTTPException(404, "Invoice not found")
@@ -35,7 +36,7 @@ def create(data: PaymentInput, db: Session = Depends(get_db), user: User = Depen
     return {"payment": payment, "remaining_balance": max(Decimal(0), remaining - data.amount)}
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_permission("payments.view"))])
 def listing(invoice_id: int | None = None, payment_method: str | None = None, status: str | None = None,
             search: str | None = None, start_date: date | None = None, end_date: date | None = None,
             page: int = Query(1, ge=1), per_page: int = Query(20, ge=1, le=100), db: Session = Depends(get_db)):
@@ -50,14 +51,14 @@ def listing(invoice_id: int | None = None, payment_method: str | None = None, st
     return {"items": rows, "page": page, "per_page": per_page, "total": total, "pages": (total + per_page - 1) // per_page}
 
 
-@router.get("/{payment_id}")
+@router.get("/{payment_id}", dependencies=[Depends(require_permission("payments.view"))])
 def get_one(payment_id: int, db: Session = Depends(get_db)):
     row = db.get(Payment, payment_id)
     if not row: raise HTTPException(404, "Payment not found")
     return row
 
 
-@router.put("/{payment_id}")
+@router.put("/{payment_id}", dependencies=[Depends(require_permission("payments.edit"))])
 def update(payment_id: int, data: PaymentInput, db: Session = Depends(get_db)):
     row = db.get(Payment, payment_id)
     if not row: raise HTTPException(404, "Payment not found")
@@ -71,7 +72,7 @@ def update(payment_id: int, data: PaymentInput, db: Session = Depends(get_db)):
     reconcile(target, db); db.commit(); db.refresh(row); return row
 
 
-@router.delete("/{payment_id}", status_code=204, dependencies=[Depends(require_admin)])
+@router.delete("/{payment_id}", status_code=204, dependencies=[Depends(require_permission("payments.delete"))])
 def delete(payment_id: int, db: Session = Depends(get_db)):
     row = db.get(Payment, payment_id)
     if not row: raise HTTPException(404, "Payment not found")

@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.models.customer import Customer
 from app.schemas.customer import CustomerCreate, CustomerResponse, CustomerUpdate
-from app.services.security import get_current_user, require_admin
+from app.services.permissions import require_permission
+from app.services.security import get_current_user
 
 
 router = APIRouter(
@@ -15,7 +16,7 @@ router = APIRouter(
 )
 
 
-@router.post("", response_model=CustomerResponse, status_code=201)
+@router.post("", response_model=CustomerResponse, status_code=201, dependencies=[Depends(require_permission("customers.create"))])
 def create_customer(
     customer: CustomerCreate,
     db: Session = Depends(get_db)
@@ -36,7 +37,7 @@ def create_customer(
     return new_customer
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_permission("customers.view"))])
 def get_customers(
     search: str | None = None,
     status: str | None = None,
@@ -59,7 +60,7 @@ def get_customers(
     return {"items": customers, "page": page, "per_page": per_page, "total": total, "pages": (total + per_page - 1) // per_page}
 
 
-@router.get("/{customer_id}", response_model=CustomerResponse)
+@router.get("/{customer_id}", response_model=CustomerResponse, dependencies=[Depends(require_permission("customers.view"))])
 def get_customer(customer_id: int, db: Session = Depends(get_db)):
     customer = db.get(Customer, customer_id)
     if customer is None:
@@ -67,7 +68,7 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)):
     return customer
 
 
-@router.put("/{customer_id}", response_model=CustomerResponse)
+@router.put("/{customer_id}", response_model=CustomerResponse, dependencies=[Depends(require_permission("customers.edit"))])
 def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Depends(get_db)):
     customer = db.get(Customer, customer_id)
     if customer is None:
@@ -79,7 +80,7 @@ def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Dep
     return customer
 
 
-@router.delete("/{customer_id}", status_code=204, dependencies=[Depends(require_admin)])
+@router.delete("/{customer_id}", status_code=204, dependencies=[Depends(require_permission("customers.delete"))])
 def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     customer = db.get(Customer, customer_id)
     if customer is None:

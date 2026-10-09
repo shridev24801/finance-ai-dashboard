@@ -21,7 +21,7 @@ from app.routers.auth import router as auth_router
 from app.routers.transactions import router as transaction_router
 from app.routers.invoices import router as invoice_router
 from app.routers.payments import router as payment_router
-from app.services.security import require_admin
+from app.services.permissions import require_any_permission, require_permission
 from app.config.database import get_db
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -85,13 +85,19 @@ def app_page(page: str, request: Request):
 
 
 @app.get("/api/dashboard/summary")
-def dashboard_summary(user=Depends(require_admin), db: Session = Depends(get_db)):
+def dashboard_summary(user=Depends(require_permission("dashboard.view")), db: Session = Depends(get_db)):
     revenue = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(Transaction.type == "income", Transaction.status == "completed").scalar()
     expenses = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(Transaction.type == "expense", Transaction.status == "completed").scalar()
     invoices = db.query(Invoice).filter(Invoice.status != "cancelled").all()
     outstanding = sum((max(0, float(i.total_amount) - sum(float(p.amount) for p in i.payments if p.status == "completed")) for i in invoices), 0)
     return {"revenue": float(revenue), "expenses": float(expenses), "profit": float(revenue) - float(expenses),
             "outstanding": outstanding, "invoice_count": len(invoices), "customer_count": db.query(Customer).count()}
+
+
+@app.get("/api/dashboard/recent-transactions")
+def dashboard_recent_transactions(user=Depends(require_permission("dashboard.view")), db: Session = Depends(get_db)):
+    rows = db.query(Transaction).order_by(Transaction.transaction_date.desc(), Transaction.id.desc()).limit(6).all()
+    return {"items": rows}
 
 
 def monthly_transaction_totals(db: Session):
@@ -105,24 +111,24 @@ def monthly_transaction_totals(db: Session):
 
 
 @app.get("/api/dashboard/revenue-expenses")
-def dashboard_revenue_expenses(user=Depends(require_admin), db: Session = Depends(get_db)):
+def dashboard_revenue_expenses(user=Depends(require_permission("dashboard.view")), db: Session = Depends(get_db)):
     return monthly_transaction_totals(db)
 
 
 @app.get("/api/dashboard/cash-flow")
-def dashboard_cash_flow(user=Depends(require_admin), db: Session = Depends(get_db)):
+def dashboard_cash_flow(user=Depends(require_permission("dashboard.view")), db: Session = Depends(get_db)):
     return [{"month": row["month"], "cash_flow": row["cash_flow"]} for row in monthly_transaction_totals(db)]
 
 
 @app.get("/api/dashboard/invoice-status")
-def dashboard_invoice_status(user=Depends(require_admin), db: Session = Depends(get_db)):
+def dashboard_invoice_status(user=Depends(require_any_permission("dashboard.view", "reports.view")), db: Session = Depends(get_db)):
     counts = defaultdict(int)
     for invoice in db.query(Invoice).all(): counts[invoice.status] += 1
     return [{"status": key, "count": value} for key, value in sorted(counts.items())]
 
 
 @app.get("/api/dashboard/expense-categories")
-def dashboard_expense_categories(user=Depends(require_admin), db: Session = Depends(get_db)):
+def dashboard_expense_categories(user=Depends(require_permission("dashboard.view")), db: Session = Depends(get_db)):
     totals = defaultdict(float)
     for row in db.query(Transaction).filter(Transaction.type == "expense", Transaction.status == "completed").all():
         totals[row.category] += float(row.amount)
@@ -130,7 +136,7 @@ def dashboard_expense_categories(user=Depends(require_admin), db: Session = Depe
 
 
 @app.get("/api/reports/income-expense")
-def income_expense(start_date: date | None = None, end_date: date | None = None, user=Depends(require_admin), db: Session = Depends(get_db)):
+def income_expense(start_date: date | None = None, end_date: date | None = None, user=Depends(require_any_permission("reports.view", "insights.view")), db: Session = Depends(get_db)):
     q = db.query(Transaction).filter(Transaction.status == "completed")
     if start_date: q = q.filter(Transaction.transaction_date >= start_date)
     if end_date: q = q.filter(Transaction.transaction_date <= end_date)
@@ -145,7 +151,7 @@ def income_expense(start_date: date | None = None, end_date: date | None = None,
 
 
 @app.get("/api/reports/outstanding-invoices")
-def outstanding_report(user=Depends(require_admin), db: Session = Depends(get_db)):
+def outstanding_report(user=Depends(require_permission("reports.view")), db: Session = Depends(get_db)):
     rows = db.query(Invoice).filter(Invoice.status.notin_(["cancelled", "paid"])).all()
     return [{"invoice_id": i.id, "invoice_number": i.invoice_number, "customer_id": i.customer_id,
              "total_amount": float(i.total_amount), "paid": sum(float(p.amount) for p in i.payments if p.status == "completed"),
@@ -153,13 +159,13 @@ def outstanding_report(user=Depends(require_admin), db: Session = Depends(get_db
 
 
 @app.get("/api/reports/customer-summary")
-def customer_report(user=Depends(require_admin), db: Session = Depends(get_db)):
+def customer_report(user=Depends(require_permission("reports.view")), db: Session = Depends(get_db)):
     return [{"customer_id": c.id, "name": c.name, "invoice_count": len(c.invoices),
              "billed": sum(float(i.total_amount) for i in c.invoices)} for c in db.query(Customer).all()]
 
 
 @app.get("/api/ai/cash-flow-prediction")
-def cash_flow_prediction(user=Depends(require_admin), db: Session = Depends(get_db)):
+def cash_flow_prediction(user=Depends(require_permission("insights.view")), db: Session = Depends(get_db)):
     from collections import defaultdict
     months = defaultdict(float)
     transactions = db.query(Transaction).filter(Transaction.status == "completed").all()
@@ -183,7 +189,7 @@ def cash_flow_prediction(user=Depends(require_admin), db: Session = Depends(get_
 
 
 @app.get("/api/ai/expense-insights")
-def expense_insights(user=Depends(require_admin), db: Session = Depends(get_db)):
+def expense_insights(user=Depends(require_permission("insights.view")), db: Session = Depends(get_db)):
     from collections import defaultdict
     import statistics
     categories = defaultdict(list)

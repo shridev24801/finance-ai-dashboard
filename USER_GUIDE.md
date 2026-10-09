@@ -16,7 +16,7 @@ All money amounts are shown in Indian rupees (₹). Use the same currency and da
 4. Sign in. FinTrack keeps your sign-in token in this browser. Use **Logout** when you finish on a shared computer.
 5. Add customers, then record transactions, create invoices, and enter payments as they occur.
 
-An administrator can view the user list and change a user's role or active status through the user-management API. Staff can use the customer and financial pages but cannot manage users.
+Administrators can use **Team access** to set each staff member's role, active status, and individual capabilities. View, add, edit, and delete permissions are independently controlled for each record area. Dashboard, Reports, and AI Insights viewing are separate permissions. A staff member granted only **Reports** can view reports but cannot add, edit, or delete records. The application enforces access on the server as well as in the page navigation.
 
 ## The main pages
 
@@ -37,7 +37,7 @@ The charts show completed income and expenses grouped by transaction month, net 
 
 Customers are the people or organizations you bill. Add a name; email, phone, company, address, and active/inactive status are optional. Search and status filters help find records, and the list is paginated.
 
-You can edit a customer or delete one. FinTrack blocks deletion when invoices are linked to that customer, so invoice history is not orphaned. Mark a customer inactive when you no longer work with them but need to keep their history.
+If your account has edit permission, you can update a customer. If it has delete permission, you can delete one. FinTrack blocks deletion when invoices are linked to that customer, so invoice history is not orphaned. Mark a customer inactive when you no longer work with them but need to keep their history.
 
 ### Transactions
 
@@ -47,7 +47,7 @@ Transactions are manually recorded business income or expenses. Each record has 
 - **Pending**: saved for tracking, but not included in those completed-transaction calculations.
 - **Cancelled**: retained as a record but excluded from those calculations.
 
-Use **Income** for money received from business activity and **Expense** for costs. Search by description, category, or reference. Filter by type, category, status, or date range; sort by date or amount.
+Use **Income** for money received from business activity and **Expense** for costs. Search by description, category, or reference. Filter by type, category, status, or date range; sort by date or amount. Add, edit, and delete controls appear only when the administrator has granted those capabilities.
 
 ### Invoices
 

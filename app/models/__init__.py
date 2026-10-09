@@ -4,3 +4,4 @@ from app.models.transaction import Transaction
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.payment import Payment
+from app.models.user_access import UserAccess
