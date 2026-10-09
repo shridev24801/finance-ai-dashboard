@@ -10,7 +10,7 @@ from app.models.invoice import Invoice
 from app.models.payment import Payment
 from app.models.user import User
 from app.schemas.invoice import PaymentInput
-from app.services.security import get_current_user
+from app.services.security import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/payments", tags=["Payments"], dependencies=[Depends(get_current_user)])
 
@@ -71,7 +71,7 @@ def update(payment_id: int, data: PaymentInput, db: Session = Depends(get_db)):
     reconcile(target, db); db.commit(); db.refresh(row); return row
 
 
-@router.delete("/{payment_id}", status_code=204)
+@router.delete("/{payment_id}", status_code=204, dependencies=[Depends(require_admin)])
 def delete(payment_id: int, db: Session = Depends(get_db)):
     row = db.get(Payment, payment_id)
     if not row: raise HTTPException(404, "Payment not found")

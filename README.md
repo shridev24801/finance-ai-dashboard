@@ -5,6 +5,7 @@ FastAPI and MySQL backend with a Bootstrap/Jinja dashboard for small business in
 ## Features
 
 - JWT bearer authentication, PBKDF2 password hashes, and admin/staff roles (first registered user is admin; later public registrations are staff).
+- Role-based access: staff can manage daily customer, transaction, invoice, and payment records; admins also control deletions, dashboard totals, reports, AI insights, and member access.
 - Customer, transaction, invoice, and payment CRUD APIs with validation and paginated listing.
 - Invoice totals calculated on the server from item quantities and unit prices; tax is a percentage.
 - Payment balance checks and automatic paid/overdue reconciliation.
@@ -43,6 +44,8 @@ python -m uvicorn app.main:app --reload
 Open <http://127.0.0.1:8000/> for the dashboard, <http://127.0.0.1:8000/login> to sign in, and <http://127.0.0.1:8000/docs> for Swagger.
 
 ## API
+
+Administrators have full access, including dashboard, reporting, insights, deletions, and `/api/auth/users` member management. Staff can create, view, and edit customers, transactions, invoices, and payments, but cannot delete records or access aggregate financial endpoints. Manage member roles and active status from the administrator-only Team access page. At least one active administrator must remain.
 
 Auth: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`.
 

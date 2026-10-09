@@ -76,11 +76,23 @@ class UserAdminUpdate(BaseModel):
 
 
 @router.patch("/users/{user_id}")
-def update_user(user_id: int, data: UserAdminUpdate, db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
+def update_user(user_id: int, data: UserAdminUpdate, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     target = db.get(User, user_id)
     if target is None:
         raise HTTPException(status_code=404, detail="User not found")
-    for key, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    if target.id == admin.id and (changes.get("role") == "staff" or changes.get("is_active") is False):
+        raise HTTPException(status_code=409, detail="You cannot remove your own administrator access")
+    removes_active_admin = target.role == "admin" and target.is_active and (
+        changes.get("role") == "staff" or changes.get("is_active") is False
+    )
+    if removes_active_admin:
+        other_admins = db.query(User).filter(
+            User.role == "admin", User.is_active.is_(True), User.id != target.id
+        ).count()
+        if other_admins == 0:
+            raise HTTPException(status_code=409, detail="At least one active administrator must remain")
+    for key, value in changes.items():
         setattr(target, key, value)
     db.commit()
     return public_user(target) | {"is_active": target.is_active}

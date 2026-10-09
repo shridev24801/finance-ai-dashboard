@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.models.customer import Customer
 from app.schemas.customer import CustomerCreate, CustomerResponse, CustomerUpdate
-from app.services.security import get_current_user
+from app.services.security import get_current_user, require_admin
 
 
 router = APIRouter(
@@ -79,7 +79,7 @@ def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Dep
     return customer
 
 
-@router.delete("/{customer_id}", status_code=204)
+@router.delete("/{customer_id}", status_code=204, dependencies=[Depends(require_admin)])
 def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     customer = db.get(Customer, customer_id)
     if customer is None:

@@ -11,7 +11,7 @@ from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.models.user import User
 from app.schemas.invoice import InvoiceInput, InvoiceResponse
-from app.services.security import get_current_user
+from app.services.security import get_current_user, require_admin
 
 router = APIRouter(prefix="/api/invoices", tags=["Invoices"], dependencies=[Depends(get_current_user)])
 CENT = Decimal("0.01")
@@ -109,7 +109,7 @@ def update(invoice_id: int, data: InvoiceInput, db: Session = Depends(get_db)):
     db.commit(); db.refresh(row); return row
 
 
-@router.delete("/{invoice_id}", status_code=204)
+@router.delete("/{invoice_id}", status_code=204, dependencies=[Depends(require_admin)])
 def delete(invoice_id: int, db: Session = Depends(get_db)):
     row = db.get(Invoice, invoice_id)
     if not row: raise HTTPException(404, "Invoice not found")
