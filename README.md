@@ -34,6 +34,14 @@ DB_PASSWORD=
 JWT_SECRET_KEY=replace-with-a-long-random-secret
 ```
 
+The application does not create the database itself or run schema creation at startup. After creating the empty `ai_dashboard` database in phpMyAdmin, run this once from the project directory to create every missing table defined by the models, including `user_access`:
+
+```powershell
+.\venv\Scripts\python.exe -c "import app.models; from app.config.database import Base, engine; Base.metadata.create_all(bind=engine); print('Model tables:', ', '.join(sorted(Base.metadata.tables)))"
+```
+
+This is safe to rerun: SQLAlchemy creates missing tables and leaves existing tables and their data alone. It does not alter columns in existing tables. If your existing schema differs from the current models, apply a separate migration for those differences. This command also replaces the need to run `migrations/20261009_user_access.sql` manually.
+
 Keep the JWT key private and use a different value per environment. Existing tables are expected to match the models; `create_all` creates missing tables but does not migrate existing tables.
 
 Run:
